@@ -4,7 +4,7 @@
 # Sources: https://www.kdnuggets.com/2020/11/build-football-dataset-web-scraping.html
 
 '''
-Goals: webscrape data from the beginning of the 22/23 Premier League season till May 14
+Goals: webscrape data from the beginning of the 22/23 Premier League season till May 28
 '''
 # libraries used
 from selenium import webdriver
@@ -19,16 +19,18 @@ import pandas as pd
 errors = []
 season = []
 
-# range of premier league games 22/23 season from August 5 till May 14
-for id in range(74911, 75270):
+# range of premier league games 22/23 season from August 5 till May 28
+for id in range(74911, 75290):
     # link to any of games
     my_url = f"https://www.premierleague.com/match/{id}"
     option = Options()
     # broswer will not open and go to the website to collect data
-    option.headless = True
+    option.add_argument('--headless=new')
     driver = webdriver.Chrome(options=option)
     # loads url into webpage
     driver.get(my_url)
+    driver.maximize_window()
+    sleep(3)
 # error handling
 # will append the match id to the errors list and move to next match without crashing
     try:
@@ -39,12 +41,12 @@ for id in range(74911, 75270):
         date = datetime.strptime(date, '%a %d %b %Y').strftime('%m/%d/%Y')
 
         home_team = driver.find_element(
-            By.XPATH, '//*[@id="mainContent"]/div/section/div[2]/section/div[3]/div/div/div[1]/div[1]/a[2]/span[1]').text
+            '//*[@id="mainContent"]/div/section/div[2]/section/div[3]/div/div/div[1]/div[1]/a[2]/span[1]').text
         away_team = driver.find_element(
-            By.XPATH, '//*[@id="mainContent"]/div/section/div[2]/section/div[3]/div/div/div[1]/div[3]/a[2]/span[1]').text
+            '//*[@id="mainContent"]/div/section/div[2]/section/div[3]/div/div/div[1]/div[3]/a[2]/span[1]').text
         # returns text 2-0
         scores = driver.find_element(
-            By.XPATH, '//*[@id="mainContent"]/div/section/div[2]/section/div[3]/div/div/div[1]/div[2]/div/div').text
+            '//*[@id="mainContent"]/div/section/div[2]/section/div[3]/div/div/div[1]/div[2]/div/div').text
         # assigns home and away team scores
         home_score = scores.split('-')[0]
         away_score = scores.split('-')[1]
@@ -63,7 +65,7 @@ for id in range(74911, 75270):
         driver.quit()
         errors.append(id)
         continue
-    # dictionaries for each team 
+    # handling the stats
     home_stats = {}
     away_stats = {}
 
@@ -76,21 +78,31 @@ for id in range(74911, 75270):
         home_stats[stat] = row[0]
         away_stats[stat] = row[2]
     # list containing all expected stats
-    stats_check = ['possession_%', 'shots_on_target', 'shots', 'touches', 'passes', 
-                'tackles', 'clearances', 'corners', 'offsides', 'yellow_cards', 
-                'red_cards', 'fouls_conceded']
+    stats_check = ['possession_%', 'shots_on_target', 'shots', 'touches', 'passes',
+                   'tackles', 'clearances', 'corners', 'offsides', 'yellow_cards',
+                   'red_cards', 'fouls_conceded']
     # if any values in the list are not a key stat then stat is added to both dictionaries as zero
     for stat in stats_check:
         if stat not in home_stats.keys():
             home_stats[stat] = 0
             away_stats[stat] = 0
-
+    # storing the data
     match = [date, home_team, away_team, home_score, away_score, home_stats['possession_%'], away_stats['possession_%'],
-            home_stats['shots_on_target'], away_stats['shots_on_target'], home_stats['shots'], away_stats['shots'],
-            home_stats['touches'], away_stats['touches'], home_stats['passes'], away_stats['passes'],
-            home_stats['tackles'], away_stats['tackles'], home_stats['clearances'], away_stats['clearances'],
-            home_stats['corners'], away_stats['corners'], home_stats['offsides'], away_stats['offsides'],
-            home_stats['yellow_cards'], away_stats['yellow_cards'], home_stats['red_cards'], away_stats['red_cards'],
-            home_stats['fouls_conceded'], away_stats['fouls_conceded']]
+             home_stats['shots_on_target'], away_stats['shots_on_target'], home_stats['shots'], away_stats['shots'],
+             home_stats['touches'], away_stats['touches'], home_stats['passes'], away_stats['passes'],
+             home_stats['tackles'], away_stats['tackles'], home_stats['clearances'], away_stats['clearances'],
+             home_stats['corners'], away_stats['corners'], home_stats['offsides'], away_stats['offsides'],
+             home_stats['yellow_cards'], away_stats['yellow_cards'], home_stats['red_cards'], away_stats['red_cards'],
+             home_stats['fouls_conceded'], away_stats['fouls_conceded']]
 
     season.append(match)
+
+# exporting the data
+columns = ['date', 'home_team', 'away_team', 'home_score', 'away_score']
+
+for stat in stats_check:
+    columns.append(f'home_{stat}')
+    columns.append(f'away_{stat}')
+
+dataset = pd.DataFrame(season, columns=columns)
+dataset.to_csv('Premier_League_22_23.csv', index=False)
